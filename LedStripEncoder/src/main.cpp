@@ -26,64 +26,47 @@
 // Hints for using attachinterrupt see https://www.arduino.cc/reference/en/language/functions/external-interrupts/attachinterrupt/
 
 #include <Arduino.h>
-#include <RotaryEncoder.h>
+#include <Encoder.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
-#if defined(__AVR_ATmega328P__)
-// Example for Arduino UNO with input signals on pin 2 and 3
-#define PIN_IN1 A2
-#define PIN_IN2 A3
 
-#elif defined(ESP8266)
-// Example for ESP8266 NodeMCU with input signals on pin D5 and D6
-#define PIN_IN1 D5
-#define PIN_IN2 D6
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
-#endif
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+// The pins for I2C are defined by the Wire-library. 
+// On an arduino UNO:       A4(SDA), A5(SCL)
+// On an arduino MEGA 2560: 20(SDA), 21(SCL)
+// On an arduino LEONARDO:   2(SDA),  3(SCL), ...
+#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// A pointer to the dynamic created rotary encoder instance.
-// This will be done in setup()
-RotaryEncoder *encoder = nullptr;
+#define RENC_P1 2
+#define RENC_P2 3
 
-#if defined(__AVR_ATmega328P__)
-// This interrupt routine will be called on any change of one of the input signals
-void checkPosition()
-{
-  encoder->tick(); // just call tick() to check the state.
-}
-
-#elif defined(ESP8266)
-/**
- * @brief The interrupt service routine will be called on any change of one of the input signals.
- */
-IRAM_ATTR void checkPosition()
-{
-  encoder->tick(); // just call tick() to check the state.
-}
-
-#endif
-
+Encoder encoder(RENC_P1, RENC_P2);
 
 void setup()
 {
   Serial.begin(115200);
   while (!Serial)
     ;
-  Serial.println("InterruptRotator example for the RotaryEncoder library.");
 
-  // setup the rotary encoder functionality
+    // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
 
-  // use FOUR3 mode when PIN_IN1, PIN_IN2 signals are always HIGH in latch position.
-  // encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR3);
-
-  // use FOUR0 mode when PIN_IN1, PIN_IN2 signals are always LOW in latch position.
-  // encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR0);
-
-  // use TWO03 mode when PIN_IN1, PIN_IN2 signals are both LOW or HIGH in latch position.
-  encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::TWO03);
-
-  // register interrupt routine
-  attachInterrupt(digitalPinToInterrupt(PIN_IN1), checkPosition, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(PIN_IN2), checkPosition, CHANGE);
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Spin me!");
+  display.display();
 } // setup()
 
 
@@ -91,15 +74,26 @@ void setup()
 void loop()
 {
   static int pos = 0;
+ 
 
-  encoder->tick(); // just call tick() to check the state.
-
-  int newPos = encoder->getPosition();
+  int newPos = encoder.read();
   if (pos != newPos) {
     Serial.print("pos:");
     Serial.print(newPos);
-    Serial.print(" dir:");
-    Serial.println((int)(encoder->getDirection()));
+
+
+    display.clearDisplay();
+    display.setCursor(0, 0); 
+    display.print("pos:");
+    display.println(newPos/4);
+    // encoder library uses 4 steps per "detent"
+    for(int i = 0; i < newPos%4; i++){
+      display.print(".");
+    }
+    display.display();
+
+
     pos = newPos;
+
   } // if
 } // loop ()
