@@ -25,13 +25,27 @@
 //
 // Hints for using attachinterrupt see https://www.arduino.cc/reference/en/language/functions/external-interrupts/attachinterrupt/
 
+#include <main.h>
 #include <Arduino.h>
 #include <Encoder.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <NeoPixelBus.h>
+#include <OneButton.h>
 
+//
+// Colors
+#define colorSaturation 128
+RgbColor red(colorSaturation, 0, 0);
+RgbColor green(0, colorSaturation, 0);
+RgbColor blue(0, 0, colorSaturation);
+RgbColor white(colorSaturation);
+RgbColor black(0);
+
+//
+// Display
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -45,10 +59,32 @@
 #define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-#define RENC_P1 2
-#define RENC_P2 3
+//
+// Rotary Encoder
+#define RENC_P1 D5
+#define RENC_P2 D6
 
 Encoder encoder(RENC_P1, RENC_P2);
+
+//
+// Button
+
+#define BUTTON_P1 D7
+
+OneButton button = OneButton(BUTTON_P1, true, true);
+
+//
+// WLED
+// esp8266 must use GPIO3 pin for this, aka RX pin
+// This has much higher Mem usage than bit-bang (+400%) but is CPU cheap
+// INVERTED So we can use basic transistor/mosfet as level shifter
+// Arbitrary 1000 pixel length
+NeoPixelBus<NeoRgbFeature, NeoEsp8266Ws2821InvertedMethod> strip(1000);
+
+//
+// STATE STATE STATE STATE STATE
+bool isButtonPressed = false;
+bool isLongPressConsumed = false;
 
 void setup()
 {
@@ -74,26 +110,40 @@ void setup()
 void loop()
 {
   static int pos = 0;
- 
 
-  int newPos = encoder.read();
+
+  int newPos = encoder.read()/4;
   if (pos != newPos) {
-    Serial.print("pos:");
-    Serial.print(newPos);
+    if(newPos >= 0) {
+      onEncoderChanged(pos, newPos);
+      pos = newPos;
+      displayStatus(pos);
+    } else {
+      encoder.readAndReset(); // if below zero, reset to 0
+    }
+  }
+}
 
-
-    display.clearDisplay();
+void displayStatus(int lightIndex) {
+  display.clearDisplay();
     display.setCursor(0, 0); 
     display.print("pos:");
-    display.println(newPos/4);
-    // encoder library uses 4 steps per "detent"
-    for(int i = 0; i < newPos%4; i++){
-      display.print(".");
-    }
+    display.println(lightIndex);
     display.display();
+}
 
 
-    pos = newPos;
+void onEncoderChanged(int oldIndex, int newIndex) {
+  strip.SetPixelColor(oldIndex, black);
+  strip.SetPixelColor(newIndex, red);
+  // check if longpressed or not
+}
 
-  } // if
-} // loop ()
+void onPress() {
+
+}
+
+// bind to both onclick and onLongPressUp
+void onButtonRelease() {
+
+}
