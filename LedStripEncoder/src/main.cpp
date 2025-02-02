@@ -37,7 +37,7 @@
 
 //
 // Colors
-#define colorSaturation 128
+#define colorSaturation 255
 RgbColor red(colorSaturation, 0, 0);
 RgbColor green(0, colorSaturation, 0);
 RgbColor blue(0, 0, colorSaturation);
@@ -61,8 +61,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 //
 // Rotary Encoder
-#define RENC_P1 D5
-#define RENC_P2 D6
+#define RENC_P1 D5 //14
+#define RENC_P2 D6 //12
 
 Encoder encoder(RENC_P1, RENC_P2);
 
@@ -75,11 +75,9 @@ OneButton button = OneButton(BUTTON_P1, true, true);
 
 //
 // WLED
-// esp8266 must use GPIO3 pin for this, aka RX pin
-// This has much higher Mem usage than bit-bang (+400%) but is CPU cheap
 // INVERTED So we can use basic transistor/mosfet as level shifter
 // Arbitrary 1000 pixel length
-NeoPixelBus<NeoRgbFeature, NeoEsp8266Ws2821InvertedMethod> strip(1000);
+NeoPixelBus<NeoRgbFeature, NeoEsp8266BitBangWs2812xInvertedMethod> strip(1000, 13);
 
 //
 // STATE STATE STATE STATE STATE
@@ -103,6 +101,13 @@ void setup()
   display.setTextColor(SSD1306_WHITE);
   display.println("Spin me!");
   display.display();
+
+  strip.Begin();
+  strip.SetPixelColor(0, red);
+  strip.SetPixelColor(1, green);
+  strip.SetPixelColor(2, blue);
+  strip.SetPixelColor(3, white);
+  strip.Show();
 } // setup()
 
 
@@ -122,6 +127,8 @@ void loop()
       encoder.readAndReset(); // if below zero, reset to 0
     }
   }
+  
+  delay(10);
 }
 
 void displayStatus(int lightIndex) {
@@ -136,6 +143,7 @@ void displayStatus(int lightIndex) {
 void onEncoderChanged(int oldIndex, int newIndex) {
   strip.SetPixelColor(oldIndex, black);
   strip.SetPixelColor(newIndex, red);
+  strip.Show();
   // check if longpressed or not
 }
 
